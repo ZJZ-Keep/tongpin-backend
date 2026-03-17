@@ -257,7 +257,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public int updateUser(User user,User userLogin) {
         Long userId = user.getId();
-        if (userId<=0||userId==null){
+        if (userId==null||userId<=0){
             throw new BusinessException(ErrorCode.NULL_ERROR);
         }
         if (!isAdmin(userLogin)&&userId.longValue()!=userLogin.getId()){

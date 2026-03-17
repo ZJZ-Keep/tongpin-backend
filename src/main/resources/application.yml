@@ -4,10 +4,11 @@ spring:
     active: "dev"
   application:
     name: tongpin-backend
+
   # DataSource Config
   datasource:
     driver-class-name: com.mysql.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/yupi?rewriteBatchedStatements=true
+    url: jdbc:mysql://localhost:3306/zjz?rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai
     username: root
     password: a1357924680
     hikari:

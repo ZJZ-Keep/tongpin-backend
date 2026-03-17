@@ -1,15 +1,14 @@
 package com.zjz.tongpin.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zjz.tongpin.common.BaseResponse;
 import com.zjz.tongpin.common.ErrorCode;
 import com.zjz.tongpin.common.ResultUtils;
 import com.zjz.tongpin.exception.BusinessException;
 import com.zjz.tongpin.model.domain.User;
-import com.zjz.tongpin.model.domain.request.UserLoginRequest;
-import com.zjz.tongpin.model.domain.request.UserRegisterRequest;
+import com.zjz.tongpin.model.request.UserLoginRequest;
+import com.zjz.tongpin.model.request.UserRegisterRequest;
 import com.zjz.tongpin.service.UserService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -19,18 +18,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StopWatch;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.zjz.tongpin.contant.UserConstant.ADMIN_ROLE;
 import static com.zjz.tongpin.contant.UserConstant.USER_LOGIN_STATE;
 
 /**
@@ -66,7 +61,7 @@ public class UserController {
         String checkPassword = userRegisterRequest.getCheckPassword();
         String planetCode = userRegisterRequest.getPlanetCode();
         if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode)) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         long result = userService.userRegister(userAccount, userPassword, checkPassword, planetCode);
         return ResultUtils.success(result);
@@ -81,7 +76,7 @@ public class UserController {
      */
     @ApiOperation("用户登录")
     @PostMapping("/login")
-    public BaseResponse<User> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
+    public BaseResponse userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
         if (userLoginRequest == null) {
             return ResultUtils.error(ErrorCode.PARAMS_ERROR);
         }
@@ -121,12 +116,20 @@ public class UserController {
     public BaseResponse<User> getCurrentUser(HttpServletRequest request) {
         Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
         User currentUser = (User) userObj;
+        // 判断是否登录
         if (currentUser == null) {
             throw new BusinessException(ErrorCode.NOT_LOGIN);
         }
         long userId = currentUser.getId();
-        // TODO 校验用户是否合法
         User user = userService.getById(userId);
+        // 判断用户是否合法
+        if (user==null){
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        if (user.getUserStatus()!=0){
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        // 脱敏
         User safetyUser = userService.getSafetyUser(user);
         return ResultUtils.success(safetyUser);
     }

@@ -19,7 +19,6 @@ public class RedissonConfig {
     private String host;
     private String port;
     private String password;
-
     @Bean
     public RedissonClient redissonClient() throws IOException {
         Config config = new Config();

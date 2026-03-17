@@ -1,4 +1,4 @@
-package com.zjz.tongpin.model.domain.request;
+package com.zjz.tongpin.model.request;
 
 
 
