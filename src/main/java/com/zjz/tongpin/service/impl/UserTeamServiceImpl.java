@@ -7,7 +7,7 @@ import com.zjz.tongpin.mapper.UserTeamMapper;
 import org.springframework.stereotype.Service;
 
 /**
-* @author 23021
+* @author ZJZ-Keep
 * @description 针对表【user_team(用户队伍关系)】的数据库操作Service实现
 * @createDate 2026-03-15 17:20:03
 */

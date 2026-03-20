@@ -10,6 +10,7 @@ import com.zjz.tongpin.model.domain.Team;
 import com.zjz.tongpin.model.domain.User;
 import com.zjz.tongpin.model.dto.TeamQuery;
 import com.zjz.tongpin.model.request.TeamUpdateRequest;
+import com.zjz.tongpin.model.request.UserJoinTeamRequest;
 import com.zjz.tongpin.model.vo.TeamUserVo;
 import com.zjz.tongpin.model.request.AddTeamRequest;
 import com.zjz.tongpin.service.TeamService;
@@ -124,6 +125,22 @@ public class TeamController {
             throw new BusinessException(ErrorCode.NULL_ERROR,"查询失败");
         }
         return ResultUtils.success(resultPage);
+    }
+    /**
+     * 用户加入队伍
+     */
+    @PostMapping("join")
+    @ApiOperation("用户加入队伍")
+    public BaseResponse<Boolean> UserJoinTeam(@RequestBody UserJoinTeamRequest userJoinTeamRequest,HttpServletRequest request){
+        if (userJoinTeamRequest==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User userLogin = userService.getUserLogin(request);
+        if (userLogin==null){
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        boolean joinTeam=teamService.joinTeam(userJoinTeamRequest,userLogin);
+        return ResultUtils.success(joinTeam);
     }
 }
 

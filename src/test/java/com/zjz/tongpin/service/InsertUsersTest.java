@@ -13,8 +13,8 @@ import java.util.concurrent.*;
 /**
  * 导入用户测试
  *
- * @author <a href="https://github.com/liyupi">程序员鱼皮</a>
- * @from <a href="https://yupi.icu">编程导航知识星球</a>
+ * @author <a href="https://github.com/ZJZ-Keep"></a>
+ *
  */
 @SpringBootTest
 public class InsertUsersTest {
@@ -35,7 +35,7 @@ public class InsertUsersTest {
         List<User> userList = new ArrayList<>();
         for (int i = 0; i < INSERT_NUM; i++) {
             User user = new User();
-            user.setUsername("原_创 【鱼_皮】https://t.zsxq.com/0emozsIJh");
+            user.setUsername("https://github.com/ZJZ-Keep/tongpin-backend");
             user.setUserAccount("fakeyupi");
             user.setAvatarUrl("https://636f-codenav-8grj8px727565176-1256524210.tcb.qcloud.la/img/logo.png");
             user.setGender(0);
@@ -69,7 +69,7 @@ public class InsertUsersTest {
             while (true){
                 j++;
                 User user = new User();
-                user.setUsername("原_创 【鱼_皮】https://t.zsxq.com/0emozsIJh");
+                user.setUsername("https://github.com/ZJZ-Keep/tongpin-backend");
                 user.setUserAccount("fakeyupi");
                 user.setAvatarUrl("https://636f-codenav-8grj8px727565176-1256524210.tcb.qcloud.la/img/logo.png");
                 user.setGender(0);

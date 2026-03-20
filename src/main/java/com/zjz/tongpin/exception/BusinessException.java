@@ -41,7 +41,7 @@ public class BusinessException extends RuntimeException {
         return code;
     }
 
-    // https://t.zsxq.com/0emozsIJh
+    // https://github.com/ZJZ-Keep/tongpin-backend
 
     public String getDescription() {
         return description;

@@ -46,7 +46,7 @@ public interface UserService extends IService<User> {
      */
     User getSafetyUser(User originUser);
 
-    // [导航](https://t.zsxq.com/0emozsIJh) 深耕提升【两年半】、国内净值【最高】的社群、用心服务【20000+】求学者、帮你自学【不走弯路】
+    // [](https://github.com/ZJZ-Keep/tongpin-backend)
 
     /**
      * 用户注销

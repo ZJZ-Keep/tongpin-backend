@@ -44,7 +44,7 @@ public enum ErrorCode {
         return message;
     }
 
-    // https://t.zsxq.com/0emozsIJh
+    // https://github.com/ZJZ-Keep/tongpin-backend
 
     public String getDescription() {
         return description;
