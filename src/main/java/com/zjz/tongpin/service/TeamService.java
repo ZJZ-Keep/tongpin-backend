@@ -4,6 +4,7 @@ import com.zjz.tongpin.model.domain.Team;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.zjz.tongpin.model.domain.User;
 import com.zjz.tongpin.model.dto.TeamQuery;
+import com.zjz.tongpin.model.request.QuitTeamRequest;
 import com.zjz.tongpin.model.request.TeamUpdateRequest;
 import com.zjz.tongpin.model.request.UserJoinTeamRequest;
 import com.zjz.tongpin.model.vo.TeamUserVo;
@@ -48,4 +49,12 @@ public interface TeamService extends IService<Team> {
      * @return
      */
     boolean joinTeam(UserJoinTeamRequest userJoinTeamRequest, User userLogin);
+
+    /**
+     * 用户退出队伍
+     * @param quitTeamRequest
+     * @param userLogin
+     * @return
+     */
+    boolean quitTeam(QuitTeamRequest quitTeamRequest, User userLogin);
 }

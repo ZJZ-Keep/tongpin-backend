@@ -8,6 +8,7 @@ import com.zjz.tongpin.model.domain.Team;
 import com.zjz.tongpin.model.domain.User;
 import com.zjz.tongpin.model.domain.UserTeam;
 import com.zjz.tongpin.model.dto.TeamQuery;
+import com.zjz.tongpin.model.request.QuitTeamRequest;
 import com.zjz.tongpin.model.request.TeamUpdateRequest;
 import com.zjz.tongpin.model.request.UserJoinTeamRequest;
 import com.zjz.tongpin.model.vo.TeamUserVo;
@@ -21,6 +22,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -250,6 +252,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         if (teamId==null||teamId<=0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        //队伍不存在
         Team team = this.getById(teamId);
         if (team==null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"队伍不存在");
@@ -302,6 +305,65 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         userTeam.setJoinTime(new Date());
         return userTeamService.save(userTeam);
 
+    }
+    /**
+     * 用户退出队伍
+     * @param quitTeamRequest
+     * @param userLogin
+     * @return
+     */
+    @Override
+    public boolean quitTeam(QuitTeamRequest quitTeamRequest, User userLogin) {
+        //1. 校验请求参数
+        if (quitTeamRequest==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        //2. 校验队伍是否存在
+        Long teamId = quitTeamRequest.getTeamId();
+        if (teamId == null || teamId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Team team = this.getById(teamId);
+        if (team==null){
+            throw new BusinessException(ErrorCode.NULL_ERROR,"队伍不存在");
+        }
+        //3. 校验我是否已加入队伍
+        Long userId = userLogin.getId();
+        QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
+        userTeamQueryWrapper.eq("teamId",teamId);
+        userTeamQueryWrapper.eq("userId",userId);
+        long countRelax = userTeamService.count(userTeamQueryWrapper);
+        if (countRelax<1){
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"未加入队伍");
+        }
+        //4. 如果队伍
+        QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("teamId",teamId);
+        long count = userTeamService.count(queryWrapper);
+        if (count==1){
+            //  a. 只剩一人，队伍解散
+            this.removeById(teamId);
+        }else {
+            //  b. 还有其他人
+            //    ⅰ. 如果是队长退出队伍，权限转移给第二早加入的用户 —— 先来后到只用取 id 最小的 2 条数据
+            if (userId.equals(team.getUserId())){
+                queryWrapper = new QueryWrapper<>();
+                queryWrapper.eq("teamId",teamId);
+                queryWrapper.last("order by id asc limit 2");
+                List<UserTeam> list = userTeamService.list(queryWrapper);
+                if (CollectionUtils.isEmpty(list)||list.size()<=1){
+                    throw new BusinessException(ErrorCode.SYSTEM_ERROR);
+                }
+                UserTeam newUserTeam = list.get(1);
+                Long newUserId = newUserTeam.getUserId();
+                team.setUserId(newUserId);
+                boolean update = this.updateById(team);
+                if (!update){
+                    throw new BusinessException(ErrorCode.SYSTEM_ERROR,"更新队长失败");
+                }
+            }
+        }
+        return userTeamService.remove(userTeamQueryWrapper);
     }
 }
 

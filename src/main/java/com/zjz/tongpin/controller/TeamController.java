@@ -9,6 +9,7 @@ import com.zjz.tongpin.exception.BusinessException;
 import com.zjz.tongpin.model.domain.Team;
 import com.zjz.tongpin.model.domain.User;
 import com.zjz.tongpin.model.dto.TeamQuery;
+import com.zjz.tongpin.model.request.QuitTeamRequest;
 import com.zjz.tongpin.model.request.TeamUpdateRequest;
 import com.zjz.tongpin.model.request.UserJoinTeamRequest;
 import com.zjz.tongpin.model.vo.TeamUserVo;
@@ -129,7 +130,7 @@ public class TeamController {
     /**
      * 用户加入队伍
      */
-    @PostMapping("join")
+    @PostMapping("/join")
     @ApiOperation("用户加入队伍")
     public BaseResponse<Boolean> UserJoinTeam(@RequestBody UserJoinTeamRequest userJoinTeamRequest,HttpServletRequest request){
         if (userJoinTeamRequest==null){
@@ -141,6 +142,22 @@ public class TeamController {
         }
         boolean joinTeam=teamService.joinTeam(userJoinTeamRequest,userLogin);
         return ResultUtils.success(joinTeam);
+    }
+    /**
+     * 用户退出队伍
+     */
+    @PostMapping("/quit")
+    @ApiOperation("用户退出队伍")
+    public BaseResponse<Boolean> quitTeam(@RequestBody QuitTeamRequest quitTeamRequest,HttpServletRequest request){
+        if (quitTeamRequest==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User userLogin = userService.getUserLogin(request);
+        if (userLogin==null){
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        boolean quitTeam=teamService.quitTeam(quitTeamRequest,userLogin);
+        return ResultUtils.success(quitTeam);
     }
 }
 
