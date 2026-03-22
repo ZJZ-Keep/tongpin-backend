@@ -10,9 +10,12 @@ import com.zjz.tongpin.exception.BusinessException;
 import com.zjz.tongpin.model.domain.User;
 import com.zjz.tongpin.service.UserService;
 import com.zjz.tongpin.mapper.UserMapper;
+import com.zjz.tongpin.utils.AlgorithmUtils;
 import io.swagger.annotations.ApiOperation;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.math3.util.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -286,6 +289,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return (User) object;
     }
 
+
+
     /**
      * 是否为管理员
      *
@@ -308,8 +313,53 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return userLogin != null && userLogin.getUserRole() == ADMIN_ROLE;
     }
 
+    /**
+     * 匹配用户
+     */
+    @Override
+    public List<User> matchUser(long num, User userLogin) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("id", "tags");
+        queryWrapper.isNotNull("tags");
+        List<User> userList = this.list(queryWrapper);
+        String loginTags = userLogin.getTags();
+        Gson gson = new Gson();
+        List<String> loginTagsList = gson.fromJson(loginTags, new TypeToken<List<String>>() {
+        }.getType());
+        // 用户列表的下标 => 相似度
+        List<Pair<User, Long>> list = new ArrayList<>();
+        for (int i = 0; i < userList.size(); i++) {
+            User user = userList.get(i);
+            String userTags = user.getTags();
+            if (StringUtils.isBlank(userTags) || Objects.equals(user.getId(), userLogin.getId())) {
+                continue;
+            }
+            List<String> userTagsList = gson.fromJson(userTags, new TypeToken<List<String>>() {
+            }.getType());
+            long distance = AlgorithmUtils.minDistance(loginTagsList, userTagsList);
+            list.add(new Pair<>(user,distance));
+        }
+        // 按编辑距离由小到大排序
+        List<Pair<User, Long>> topUserPairList = list.stream().
+                sorted((a, b) -> (int) (a.getValue() - b.getValue()))
+                .limit(num)
+                .collect(Collectors.toList());
+        // 原本顺序的 userId 列表
+        List<Long> userIdList = topUserPairList.stream().map(pair -> pair.getKey().getId()).collect(Collectors.toList());
+        QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
+        userQueryWrapper.in("id",userIdList);
+        // 1, 3, 2
+        // User1、User2、User3
+        // 1 => User1, 2 => User2, 3 => User3
+        Map<Long, List<User>> userIdUserListMap = this.list(userQueryWrapper).stream()
+                .map(this::getSafetyUser)
+                .collect(Collectors.groupingBy(User::getId));
+        ArrayList<User> finalUserList = new ArrayList<>();
+        for (Long userId : userIdList) {
+            finalUserList.add(userIdUserListMap.get(userId).get(0));
+        }
 
-
-
+        return finalUserList;
+    }
 }
 

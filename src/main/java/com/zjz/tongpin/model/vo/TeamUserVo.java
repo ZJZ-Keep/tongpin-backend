@@ -59,4 +59,14 @@ public class TeamUserVo {
      *创建人用户信息
      */
     private UserVo createUserVo;
+
+    /**
+     * 已经加入的队伍数
+     */
+    private Integer hasJoinNum;
+
+    /**
+     * 是否已经加入队伍
+     */
+    private boolean hasJoin=false;
 }

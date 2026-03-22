@@ -91,4 +91,9 @@ public interface UserService extends IService<User> {
      * 得到当前用户
      */
     User getUserLogin(HttpServletRequest request);
+
+    /**
+     * 匹配用户
+     */
+    List<User> matchUser(long num, User userLogin);
 }

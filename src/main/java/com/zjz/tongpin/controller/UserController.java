@@ -250,5 +250,19 @@ public class UserController {
         int i = userService.updateUser(user,userLogin);
         return ResultUtils.success(i);
     }
+
+    /**
+     * 匹配用户
+     */
+    @ApiOperation("匹配用户")
+    @GetMapping("/match")
+    public BaseResponse<List<User>> matchUser(long num,HttpServletRequest request){
+        if (num<=0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User userLogin = userService.getUserLogin(request);
+        List<User> userList=userService.matchUser(num,userLogin);
+        return ResultUtils.success(userList);
+    }
 }
 
