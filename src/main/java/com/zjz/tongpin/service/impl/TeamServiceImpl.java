@@ -136,6 +136,10 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             if (id!=null&&id>0){
                 teamQueryWrapper.eq("id",id);
             }
+            List<Long> idList = teamQuery.getIdList();
+            if (idList!=null&&!idList.isEmpty()){
+                teamQueryWrapper.in("id",idList);
+            }
             // 可以通过某个关键词同时对名称和描述查询
             String search = teamQuery.getSearch();
             if (StringUtils.isNotBlank(search)){
@@ -166,7 +170,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             if (!isAdmin&&!teamStatusEnum.equals(TeamStatusEnum.PUBLIC)){
                 throw new BusinessException(ErrorCode.NO_AUTH);
             }
-            teamQueryWrapper.eq("status",teamStatusEnum.getStatus());
+            if (!isAdmin){
+                teamQueryWrapper.eq("status",teamStatusEnum.getStatus());
+            }
         }
         //2. 不展示已过期的队伍（根据过期时间筛选）
         teamQueryWrapper.and(tw->tw.gt("expireTime",new Date()).or().isNull("expireTime"));

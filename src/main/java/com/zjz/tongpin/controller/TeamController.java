@@ -8,6 +8,7 @@ import com.zjz.tongpin.common.ResultUtils;
 import com.zjz.tongpin.exception.BusinessException;
 import com.zjz.tongpin.model.domain.Team;
 import com.zjz.tongpin.model.domain.User;
+import com.zjz.tongpin.model.domain.UserTeam;
 import com.zjz.tongpin.model.dto.TeamQuery;
 import com.zjz.tongpin.model.request.QuitTeamRequest;
 import com.zjz.tongpin.model.request.TeamUpdateRequest;
@@ -16,14 +17,19 @@ import com.zjz.tongpin.model.vo.TeamUserVo;
 import com.zjz.tongpin.model.request.AddTeamRequest;
 import com.zjz.tongpin.service.TeamService;
 import com.zjz.tongpin.service.UserService;
+import com.zjz.tongpin.service.UserTeamService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 队伍接口
@@ -39,6 +45,8 @@ public class TeamController {
     private UserService userService;
     @Resource
     private TeamService teamService;
+    @Autowired
+    private UserTeamService userTeamService;
 
     /**
      * 添加队伍
@@ -160,6 +168,49 @@ public class TeamController {
         }
         boolean deleteTeam=teamService.deleteTeam(teamId,userLogin);
         return ResultUtils.success(deleteTeam);
+    }
+
+    /**
+     * 查询我创建的队伍list
+     */
+    @GetMapping("/list/my/create")
+    @ApiOperation("查询我创建的队伍list")
+    public BaseResponse<List<TeamUserVo>> selectCreateTeamList(TeamQuery teamQuery,HttpServletRequest request){
+        if (teamQuery==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        log.info("teamQuery:{}",teamQuery);
+        User userLogin = userService.getUserLogin(request);
+        Long id = userLogin.getId();
+        teamQuery.setUserId(id);
+        List<TeamUserVo> list = teamService.listTeams(teamQuery,true);
+        return ResultUtils.success(list);
+    }
+
+    /**
+     * 查询我加入的队伍list
+     */
+    @GetMapping("/list/my/join")
+    @ApiOperation("查询我加入的队伍list")
+    public BaseResponse<List<TeamUserVo>> selectJoinTeamList(TeamQuery teamQuery,HttpServletRequest request){
+        if (teamQuery==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        log.info("teamQuery:{}",teamQuery);
+        User userLogin = userService.getUserLogin(request);
+        Long id = userLogin.getId();
+        QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
+        userTeamQueryWrapper.eq("userId",id);
+        List<UserTeam> teamList = userTeamService.list(userTeamQueryWrapper);
+        if (teamList==null|| teamList.isEmpty()){
+            return ResultUtils.success(null);
+        }
+        //查询不重复的队伍id
+        Map<Long, List<UserTeam>> listMap = teamList.stream().collect(Collectors.groupingBy(UserTeam::getTeamId));
+        List<Long> idList = new ArrayList<>(listMap.keySet());
+        teamQuery.setIdList(idList);
+        List<TeamUserVo> list = teamService.listTeams(teamQuery,true);
+        return ResultUtils.success(list);
     }
 }
 
