@@ -63,7 +63,7 @@ public class TeamUserVo {
     /**
      * 已经加入的队伍数
      */
-    private Integer hasJoinNum;
+    private Number hasJoinNum;
 
     /**
      * 是否已经加入队伍

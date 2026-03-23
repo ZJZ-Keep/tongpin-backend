@@ -122,7 +122,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     }
 
     /**
-     * 获取列表（用户）
+     * 查询队伍list
      * @param teamQuery
      * @param isAdmin
      * @return
@@ -161,18 +161,16 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             if (userId!=null&&userId>0){
                 teamQueryWrapper.eq("userId",userId);
             }
-            // 只有管理员才能查看加密还有非公开的房间
+            // 只有管理员才能查看非公开的房间
             Integer status = teamQuery.getStatus();
             TeamStatusEnum teamStatusEnum = TeamStatusEnum.teamStatusEnum(status);
             if (teamStatusEnum==null){
                 teamStatusEnum=TeamStatusEnum.PUBLIC;
             }
-            if (!isAdmin&&!teamStatusEnum.equals(TeamStatusEnum.PUBLIC)){
+            if(!isAdmin&& teamStatusEnum.equals(TeamStatusEnum.PRIVATE)){
                 throw new BusinessException(ErrorCode.NO_AUTH);
             }
-            if (!isAdmin){
-                teamQueryWrapper.eq("status",teamStatusEnum.getStatus());
-            }
+            teamQueryWrapper.eq("status",teamStatusEnum.getStatus());
         }
         //2. 不展示已过期的队伍（根据过期时间筛选）
         teamQueryWrapper.and(tw->tw.gt("expireTime",new Date()).or().isNull("expireTime"));
