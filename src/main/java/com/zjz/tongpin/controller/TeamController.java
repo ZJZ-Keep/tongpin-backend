@@ -164,7 +164,7 @@ public class TeamController {
      */
     @PostMapping("/join")
     @ApiOperation("用户加入队伍")
-    public BaseResponse<Boolean> UserJoinTeam(@RequestBody UserJoinTeamRequest userJoinTeamRequest,HttpServletRequest request){
+    public BaseResponse<Boolean> UserJoinTeam(@RequestBody UserJoinTeamRequest userJoinTeamRequest,HttpServletRequest request) {
         if (userJoinTeamRequest==null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -197,15 +197,15 @@ public class TeamController {
      */
     @PostMapping("/delete")
     @ApiOperation("解散队伍")
-    public BaseResponse<Boolean> deleteTeam(@RequestBody Long teamId,HttpServletRequest request){
-        if (teamId==null){
+    public BaseResponse<Boolean> deleteTeam(@RequestBody Long id,HttpServletRequest request){
+        if (id==null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         User userLogin = userService.getUserLogin(request);
         if (userLogin==null){
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
-        boolean deleteTeam=teamService.deleteTeam(teamId,userLogin);
+        boolean deleteTeam=teamService.deleteTeam(id,userLogin);
         return ResultUtils.success(deleteTeam);
     }
 
