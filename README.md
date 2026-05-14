@@ -1,175 +1,166 @@
+# 同频匹配项目 (TongPin Matching Project)
 
----
+基于 Spring Boot 的同频匹配后端服务，用于实现用户匹配和团队管理功能。
 
-## 🔧 核心功能详解
+## 技术栈
 
-### 1. 智能体（Agent）系统
+- **语言**: Java 21
+- **框架**: Spring Boot 3.2.x
+- **数据库**: MySQL 8.0+ + Redis 7.0+
+- **ORM**: MyBatis Plus
+- **分布式锁**: Redisson
+- **定时任务**: Spring Scheduler
+- **构建工具**: Maven
 
-项目实现了多种智能体模式：
+## 功能特性
 
-- **BaseAgent**: 基础的流式对话智能体，支持 SSE 实时推送
-- **ReActAgent**: 基于 ReAct（Reasoning + Acting）模式的推理智能体
-- **ToolCallAgent**: 支持工具调用的智能体
-- **ZjzManus**: 高级智能体，集成多种能力
+### 用户模块
+- 用户注册与登录
+- 用户信息管理
+- 密码加密存储
 
-### 2. RAG（检索增强生成）
+### 团队模块
+- 团队创建与管理
+- 团队成员管理
+- 团队搜索与筛选
+- 加入/退出团队
 
-基于 PostgreSQL + pgvector 实现的 RAG 系统：
+### 匹配算法
+- 基于标签相似度的用户匹配
+- 余弦相似度计算
 
-- 文档加载和分块
-- 向量嵌入和存储
-- 上下文查询增强
-- 自定义 RAG 顾问
+### 缓存优化
+- Redis 热点数据缓存
+- 定时任务预热缓存
 
-### 3. 工具系统
+## 快速开始
 
-内置多种实用工具：
+### 环境要求
 
-| 工具 | 功能 |
-|------|------|
-| FileOperationTool | 文件读写、删除操作 |
-| PDFGenerationTool | PDF 文件生成 |
-| QQEmailSendTool | QQ 邮箱邮件发送 |
-| WebSearchTool | 网络搜索 |
-| WebScrapingTool | 网页爬取 |
-| ResourceDownloadTool | 资源下载 |
-| TerminalOperationTool | 终端命令执行 |
+- JDK 21+
+- Maven 3.8+
+- MySQL 8.0+
+- Redis 7.0+
 
-### 4. MCP 服务
+### 配置说明
 
-支持 MCP（Model Context Protocol）协议：
-
-- 工具注册和发现
-- 图像搜索工具
-- 支持 SSE 和 stdio 传输模式
-
----
-
-## 🐳 Docker 部署
-
-### 使用 Docker Compose（推荐）
-
-```bash
-# 一键启动所有服务
-docker-compose up -d
-
-# 查看日志
-docker-compose logs -f
-
-# 停止服务
-docker-compose down
+1. 创建数据库
+```sql
+CREATE DATABASE tongpin_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### 手动部署
-
+2. 执行初始化脚本
 ```bash
-# 1. 创建 Docker 网络
-docker network create zjz-network
-
-# 2. 启动数据库
-docker run -d --name mariadb -p 3306:3306 -e MYSQL_ROOT_PASSWORD=your_password mariadb:latest
-docker run -d --name postgres -p 5432:5432 -e POSTGRES_PASSWORD=your_password postgres:latest
-
-# 3. 启动后端
-docker build -t zjz-ai-agent-backend .
-docker run -d --network zjz-network -p 8081:8081 --env-file .env zjz-ai-agent-backend
-
-# 4. 启动前端
-docker build -t zjz-ai-agent-frontend zjz-ai-agent-frontend/
-docker run -d --network zjz-network -p 81:80 zjz-ai-agent-frontend
+mysql -u username -p tongpin_db < sql/create_table.sql
 ```
 
----
+3. 修改配置文件 `src/main/resources/application.yml`
 
-## 📊 API 接口
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/tongpin_db
+    username: your_username
+    password: your_password
+  redis:
+    host: localhost
+    port: 6379
+```
 
-### 主要接口
+### 运行项目
+
+**开发环境:**
+```bash
+mvn spring-boot:run
+```
+
+**生产环境:**
+```bash
+mvn clean package
+java -jar target/tongpin-backend-1.0.0.jar
+```
+
+## 项目结构
+
+```
+├── src/main/java/com/zjz/tongpin/
+│   ├── common/          # 通用工具类
+│   ├── config/          # 配置类
+│   ├── controller/      # 控制层
+│   ├── service/         # 服务层
+│   ├── mapper/          # 数据访问层
+│   ├── model/           # 数据模型
+│   ├── exception/       # 异常处理
+│   ├── job/             # 定时任务
+│   └── utils/           # 工具函数
+├── src/main/resources/
+│   ├── mapper/          # MyBatis XML映射
+│   └── application.yml  # 配置文件
+├── sql/                 # 数据库脚本
+└── Dockerfile           # Docker配置
+```
+
+## API 接口
+
+### 用户接口
 
 | 接口 | 方法 | 描述 |
 |------|------|------|
-| `/api/ai/plan_app/chat/Sse` | GET | 行程规划流式对话 |
-| `/api/ai/zjz_manus/chat` | POST | 通用智能体对话 |
-| `/api/health` | GET | 健康检查 |
-| `/api/logger` | GET/POST | 日志管理 |
+| `/api/user/register` | POST | 用户注册 |
+| `/api/user/login` | POST | 用户登录 |
+| `/api/user/logout` | POST | 用户登出 |
+| `/api/user/current` | GET | 获取当前用户 |
+| `/api/user/search` | GET | 搜索用户 |
 
-### 调用示例
+### 团队接口
+
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/team/list` | GET | 获取团队列表 |
+| `/api/team/create` | POST | 创建团队 |
+| `/api/team/update` | POST | 更新团队 |
+| `/api/team/delete` | POST | 删除团队 |
+| `/api/team/join` | POST | 加入团队 |
+| `/api/team/quit` | POST | 退出团队 |
+
+## 部署方式
+
+### Docker 部署
 
 ```bash
-# 行程规划对话（SSE）
-curl "http://localhost:8081/api/ai/plan_app/chat/Sse?message=帮我规划一次北京旅行&chatId=chat_123"
-
-# 通用智能体对话
-curl -X POST http://localhost:8081/api/ai/zjz_manus/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "你好", "chatId": "chat_123"}'
+docker build -t tongpin-backend .
+docker run -p 8080:8080 tongpin-backend
 ```
 
----
+### Docker Compose
 
-## 🧪 测试
-
-```bash
-# 后端测试
-mvn test
-
-# 前端测试
-npm run test
-
-# 集成测试
-docker-compose -f docker-compose.test.yml up
+```yaml
+version: '3.8'
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: tongpin_db
+    ports:
+      - "3306:3306"
+  redis:
+    image: redis:7.0
+    ports:
+      - "6379:6379"
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+      - redis
 ```
 
----
+## 许可证
 
-## 📝 文档
+MIT License
 
-- [API 文档](http://localhost:8081/swagger-ui.html) - Swagger UI
-- [开发指南](docs/DEVELOPMENT.md) - 开发环境配置
-- [部署指南](docs/DEPLOYMENT.md) - 生产环境部署
-- [工具开发](docs/TOOLS.md) - 如何开发新工具
+## 贡献
 
----
-
-## 🤝 贡献
-
-欢迎贡献代码、报告问题或提出建议！
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
-
----
-
-## 📄 开源协议
-
-本项目采用 MIT 协议开源 - 查看 [LICENSE](LICENSE) 文件了解详情
-
----
-
-## 👨‍💻 作者
-
-- **郑少** - 主要开发者
-- 邮箱：2302181496@qq.com
-
----
-
-## 🙏 致谢
-
-感谢以下开源项目：
-
-- [Spring AI](https://spring.io/projects/spring-ai)
-- [Vue.js](https://vuejs.org/)
-- [pgvector](https://github.com/pgvector/pgvector)
-- [Alibaba DashScope](https://dashscope.aliyuncs.com/)
-
----
-
-<div align="center">
-
-**如果这个项目对你有帮助，请给一个 ⭐️ Star 支持！**
-
-Made with ❤️ by ZJZ AI Agent Team
-
-</div>
+欢迎提交 Issue 和 Pull Request！
