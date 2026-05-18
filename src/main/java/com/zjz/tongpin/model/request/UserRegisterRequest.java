@@ -35,5 +35,3 @@ public class UserRegisterRequest implements Serializable {
      */
     private String planetCode;
 }
-
-// [](https:// zjz.icu) 入门捷径+交流答疑+项目实战+求职指导，帮你自学不走弯路
