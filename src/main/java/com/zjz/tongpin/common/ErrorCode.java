@@ -1,6 +1,5 @@
 package com.zjz.tongpin.common;
 
-// 讲师 【coder__皮】 https://space.bibi.com/12890453/
 
 /**
  * 错误码
