@@ -1,4 +1,3 @@
-# 同频匹配项目 (TongPin Matching Project)
 
 基于 Spring Boot 的同频匹配后端服务，用于实现用户匹配和团队管理功能。
 
