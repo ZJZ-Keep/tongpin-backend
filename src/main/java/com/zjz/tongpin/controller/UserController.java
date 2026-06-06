@@ -1,5 +1,6 @@
 package com.zjz.tongpin.controller;
 
+import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zjz.tongpin.common.BaseResponse;
@@ -9,6 +10,8 @@ import com.zjz.tongpin.exception.BusinessException;
 import com.zjz.tongpin.model.domain.User;
 import com.zjz.tongpin.model.request.UserLoginRequest;
 import com.zjz.tongpin.model.request.UserRegisterRequest;
+import com.zjz.tongpin.once.CurrentTableListener;
+import com.zjz.tongpin.once.UserTableInfo;
 import com.zjz.tongpin.service.UserService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -19,10 +22,15 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -263,6 +271,21 @@ public class UserController {
         User userLogin = userService.getUserLogin(request);
         List<User> userList=userService.matchUser(num,userLogin);
         return ResultUtils.success(userList);
+    }
+
+    /**
+     * 批量插入用户
+     * @param file
+     */
+    @PostMapping("/batchInsert")
+    public BaseResponse<String> batchInsertUsers(MultipartFile  file) throws IOException {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                8, 16, 30L, TimeUnit.SECONDS, new ArrayBlockingQueue<>(100),new ThreadPoolExecutor.CallerRunsPolicy()
+        );
+        CurrentTableListener tableListener = new CurrentTableListener(userService, executor);
+        EasyExcel.read(file.getInputStream(), UserTableInfo.class, tableListener).sheet().doRead();
+        executor.shutdown();
+        return ResultUtils.success("批量插入用户成功");
     }
 }
 

@@ -7,10 +7,13 @@ import com.zjz.tongpin.model.domain.User;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
 import javax.annotation.Resource;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -23,8 +26,24 @@ public class RedisTest {
     private UserService userService;
     @Test
     void RedisTest1(){
-        ValueOperations valueOperations = redisTemplate.opsForValue();
-        valueOperations.set("zjzString","zjz");
+        /*HashOperations<String,String,Object> hashOperations = redisTemplate.opsForHash();
+        String userKey = "zjz:user:";
+        hashOperations.put(userKey,"id",1);
+        hashOperations.put(userKey,"username","zjz");
+        hashOperations.get(userKey,"username");
+        Map<String, Object> entries = hashOperations.entries(userKey);
+        System.out.println(entries);
+        Set<String> keys = hashOperations.keys(userKey);
+        System.out.println(keys);
+        // 设置过期时间
+        redisTemplate.expire(userKey,30,TimeUnit.SECONDS);*/
+
+        /*ValueOperations valueOperations = redisTemplate.opsForValue();
+        valueOperations.set("zjzhello","hello");
+        valueOperations.set("zjzzzz","zzzz", 30, TimeUnit.SECONDS);
+        redisTemplate.delete("zjzhello");
+        Object zjzzzz = valueOperations.get("zjzzzz");
+        System.out.println(zjzzzz);*/
 /*        valueOperations.set("zjzAge",20);
         valueOperations.set("zjzCode",2.0);
         User user = new User();
@@ -40,7 +59,7 @@ public class RedisTest {
         Assertions.assertTrue(2.0==((Double) zjz));
         System.out.println(valueOperations.get("zjzUser"));*/
 
-        redisTemplate.delete("zjzCode");
+        //redisTemplate.delete("zjzCode");
     }
 
 

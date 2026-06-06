@@ -315,7 +315,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     /**
      * 匹配用户
-     */
     @Override
     public List<User> matchUser(long num, User userLogin) {
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
@@ -351,6 +350,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 1, 3, 2
         // User1、User2、User3
         // 1 => User1, 2 => User2, 3 => User3
+        // 批量查询完整用户信息
         Map<Long, List<User>> userIdUserListMap = this.list(userQueryWrapper).stream()
                 .map(this::getSafetyUser)
                 .collect(Collectors.groupingBy(User::getId));
@@ -360,6 +360,57 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
 
         return finalUserList;
+    }*/
+
+    /**
+     * 匹配用户（优先队列）
+     */
+    @Override
+    public List<User> matchUser(long num, User userLogin) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("id", "tags");
+        queryWrapper.isNotNull("tags");
+        List<User> userList = this.list(queryWrapper);
+        String loginTags = userLogin.getTags();
+        Gson gson = new Gson();
+        List<String> loginTagsList = gson.fromJson(loginTags, new TypeToken<List<String>>() {
+        }.getType());
+        // 用户列表的下标 => 相似度
+        // 优先队列(最大堆)
+        PriorityQueue<Pair<User, Long>> maxHeap = new PriorityQueue<>((a,b)->
+                (int) (b.getValue() - a.getValue())
+        );
+        for (int i = 0; i < userList.size(); i++) {
+            User user = userList.get(i);
+            String userTags = user.getTags();
+            if (StringUtils.isBlank(userTags) || Objects.equals(user.getId(), userLogin.getId())) {
+                continue;
+            }
+            List<String> userTagsList = gson.fromJson(userTags, new TypeToken<List<String>>() {
+            }.getType());
+            long distance = AlgorithmUtils.minDistance(loginTagsList, userTagsList);
+            // 入堆
+            if (maxHeap.size() < num){
+                maxHeap.offer(new Pair<>(user,distance));
+            } else if(distance<maxHeap.peek().getValue()){
+                maxHeap.poll();
+                maxHeap.offer(new Pair<>(user,distance));
+            }
+        }
+
+        //取出最大堆中的用户
+        ArrayList<User> newUserList = new ArrayList<>();
+        while (!maxHeap.isEmpty()){
+            User user = maxHeap.poll().getKey();
+            newUserList.add(user);
+        }
+
+        // 逆序
+        Collections.reverse(newUserList);
+        //脱敏返回
+        return newUserList.stream()
+                .map(this::getSafetyUser)
+                .collect(Collectors.toList());
     }
 }
 

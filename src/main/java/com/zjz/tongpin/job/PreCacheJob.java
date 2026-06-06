@@ -41,7 +41,7 @@ public class PreCacheJob {
             if (lock.tryLock(0,-1,TimeUnit.MILLISECONDS)){
                 for (Long userId : usersId) {
                     // 1. 缓存键加入分页参数，确保不同页数据缓存不冲突
-                    String redisKey = String.format("yupao:user:recommend:%s:%s:%s",
+                    String redisKey = String.format("zjz:user:recommend:%s:%s:%s",
                             userId, 1,20);
                     ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
                     // 2. 缓存未命中，查询数据库
@@ -55,7 +55,7 @@ public class PreCacheJob {
                     }
                     // 4. 将脱敏后的分页结果写入缓存（建议添加过期时间）
                     try {
-                        valueOperations.set(redisKey, userPage, 30, TimeUnit.MINUTES);
+                        valueOperations.set(redisKey, userPage, 24, TimeUnit.HOURS);
                     } catch (Exception e) {
                         log.error("redis set key error", e);
                     }

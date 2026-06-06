@@ -1,10 +1,11 @@
 package com.zjz.tongpin.once;
 
 import com.alibaba.excel.EasyExcel;
+import org.springframework.util.StopWatch;
 
 import java.util.List;
 
-public class ImprotInfo {
+public class ImportInfo {
     public static void main(String[] args) {
        String fileName = "C:\\Users\\23021\\Desktop\\星球用户信息表.xlsx";
         //readByListener(fileName);
@@ -15,9 +16,12 @@ public class ImprotInfo {
      * @param fileName
      */
     public static void readByListener(String fileName) {
-
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
         // 这里 需要指定读用哪个class去读，然后读取第一个sheet 文件流会自动关闭
         EasyExcel.read(fileName, UserTableInfo.class, new TableListener()).sheet().doRead();
+        stopWatch.stop();
+        System.out.println(stopWatch.getTotalTimeMillis());
     }
 
     /**
@@ -26,11 +30,14 @@ public class ImprotInfo {
      */
     public static void synchronousRead(String fileName) {
         // 这里 需要指定读用哪个class去读，然后读取第一个sheet 同步读取会自动finish
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
         List<UserTableInfo> list = EasyExcel.read(fileName).head(UserTableInfo.class).sheet().doReadSync();
         for (UserTableInfo TableUserInfo : list) {
             System.out.println(TableUserInfo);
         }
-
+        stopWatch.stop();
+        System.out.println(stopWatch.getTotalTimeMillis());
     }
 
 }
