@@ -292,12 +292,12 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                     userTeamQueryWrapper.eq("userId",userId);
                     long count = userTeamService.count(userTeamQueryWrapper);
                     if(count>5){
-                        throw new BusinessException(ErrorCode.NULL_ERROR,"用户错误");
+                        throw new BusinessException(ErrorCode.NULL_ERROR,"用户最多加入5个队伍");
                     }
                     // 队伍必须存在，、
                     userTeamQueryWrapper = new QueryWrapper<>();
                     userTeamQueryWrapper.eq("teamId",teamId);
-                    count = userTeamService.count(userTeamQueryWrapper);
+                    count = userTeamService .count(userTeamQueryWrapper);
                     // 只能加入未满
                     if (team.getMaxNum()<=count){
                         throw new BusinessException(ErrorCode.NULL_ERROR,"队伍已满");

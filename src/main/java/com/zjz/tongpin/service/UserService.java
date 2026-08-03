@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import io.swagger.annotations.ApiOperation;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 
 import static com.zjz.tongpin.contant.UserConstant.ADMIN_ROLE;
@@ -54,7 +55,7 @@ public interface UserService extends IService<User> {
      * @param request
      * @return
      */
-    int userLogout(HttpServletRequest request);
+    int userLogout(HttpServletRequest request, HttpServletResponse response);
 
     /**
      * 通过标签搜索用户

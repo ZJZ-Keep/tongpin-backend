@@ -23,6 +23,7 @@ import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -43,7 +44,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Resource
     private UserMapper userMapper;
 
-    // https://www.code-nav.cn/
 
     /**
      * 盐值，混淆密码
@@ -149,7 +149,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 用户不存在
         if (user == null) {
             log.info("user login failed, userAccount cannot match userPassword");
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号或密码错误");
         }
         // 3. 用户脱敏
         User safetyUser = getSafetyUser(user);
@@ -191,9 +191,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @param request
      */
     @Override
-    public int userLogout(HttpServletRequest request) {
-        // 移除登录态
-        request.getSession().removeAttribute(USER_LOGIN_STATE);
+    public int userLogout(HttpServletRequest request, HttpServletResponse response) {
+        // 销毁整个 Session，Spring Session 会自动清理 Redis 缓存并清除浏览器 Cookie
+        request.getSession().invalidate();
         return 1;
     }
 
@@ -218,12 +218,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             }
             Set<String> tagsets= gson.fromJson(tags,new TypeToken<Set<String>>(){}.getType());
             tagsets = Optional.ofNullable(tagsets).orElse(new HashSet<>());
+            /*//缺一个就淘汰
             for (String tagName : tagNames) {
                 if (!tagsets.contains(tagName)){
                     return false;
                 }
             }
-            return true;
+            return true;*/
+            //存在一个就通过
+            for (String tagName : tagNames) {
+                if (tagsets.contains(tagName)){
+                    return true;
+                }
+            }
+            return false;
         }).map(this::getSafetyUser).collect(Collectors.toList());
 
     }
@@ -367,14 +375,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     @Override
     public List<User> matchUser(long num, User userLogin) {
+        User latestUser = this.getById(userLogin.getId());
+        if (latestUser == null || StringUtils.isBlank(latestUser.getTags())) {
+            return new ArrayList<>();
+        }
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.select("id", "tags");
+        //queryWrapper.select("id", "tags");
         queryWrapper.isNotNull("tags");
         List<User> userList = this.list(queryWrapper);
-        String loginTags = userLogin.getTags();
+        String loginTags = latestUser.getTags();
         Gson gson = new Gson();
+        // 用Gson将tags转为List
         List<String> loginTagsList = gson.fromJson(loginTags, new TypeToken<List<String>>() {
         }.getType());
+        if (loginTagsList == null || loginTagsList.isEmpty()) {
+            return new ArrayList<>();
+        }
         // 用户列表的下标 => 相似度
         // 优先队列(最大堆)
         PriorityQueue<Pair<User, Long>> maxHeap = new PriorityQueue<>((a,b)->
@@ -388,6 +404,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             }
             List<String> userTagsList = gson.fromJson(userTags, new TypeToken<List<String>>() {
             }.getType());
+            if (userTagsList == null || userTagsList.isEmpty()) {
+                continue;
+            }
             long distance = AlgorithmUtils.minDistance(loginTagsList, userTagsList);
             // 入堆
             if (maxHeap.size() < num){

@@ -26,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -105,11 +106,11 @@ public class UserController {
      */
     @ApiOperation("用户注销")
     @PostMapping("/logout")
-    public BaseResponse<Integer> userLogout(HttpServletRequest request) {
+    public BaseResponse<Integer> userLogout(HttpServletRequest request, HttpServletResponse response) {
         if (request == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        int result = userService.userLogout(request);
+        int result = userService.userLogout(request, response);
         return ResultUtils.success(result);
     }
 
@@ -280,7 +281,7 @@ public class UserController {
     @PostMapping("/batchInsert")
     public BaseResponse<String> batchInsertUsers(MultipartFile  file) throws IOException {
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
-                8, 16, 30L, TimeUnit.SECONDS, new ArrayBlockingQueue<>(100),new ThreadPoolExecutor.CallerRunsPolicy()
+                16, 30, 30L, TimeUnit.SECONDS, new ArrayBlockingQueue<>(100),new ThreadPoolExecutor.CallerRunsPolicy()
         );
         CurrentTableListener tableListener = new CurrentTableListener(userService, executor);
         EasyExcel.read(file.getInputStream(), UserTableInfo.class, tableListener).sheet().doRead();

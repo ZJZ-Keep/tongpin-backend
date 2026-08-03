@@ -11,7 +11,7 @@ import java.security.NoSuchAlgorithmException;
  *
  *   *   */
 @SpringBootTest
-class UserCenterApplicationTests {
+class TongpinApplicationTests {
 
     // https:// zjz.icu/
 
