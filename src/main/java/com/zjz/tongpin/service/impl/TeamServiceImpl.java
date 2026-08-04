@@ -31,7 +31,10 @@ import org.springframework.util.CollectionUtils;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 /**
@@ -47,8 +50,10 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     private UserTeamService userTeamService;
     @Resource
     private UserService userService;
-    @Resource
-    private RedissonClient redissonClient;
+    /*@Resource
+    private RedissonClient redissonClient;*/
+
+    private final ConcurrentHashMap<Long, Lock> teamLockMap = new ConcurrentHashMap<>();
 
     /**
      * 创建队伍
@@ -281,6 +286,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             }
         }
         // 用户最多加入 5 个队伍
+
+        /*
+        //分布式锁策略
         Long userId = userLogin.getId();
         RLock lock = redissonClient.getLock("zjz:joinTeam:lock");
         Thread thread = Thread.currentThread();
@@ -325,6 +333,55 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             return false;
         }finally {
             if (lock.isHeldByCurrentThread()){
+                System.out.println("thread = " + thread.getId());
+                lock.unlock();
+            }
+        }*/
+        //ReentrantLock锁策略
+        Long userId = userLogin.getId();
+        Lock lock = teamLockMap.computeIfAbsent(teamId, k -> new ReentrantLock());
+        Thread thread = Thread.currentThread();
+        System.out.println("thread = " + thread.getId());
+        boolean acquire = false;
+        try {
+            acquire = lock.tryLock(2, TimeUnit.SECONDS);
+
+            if (!acquire){
+                throw new BusinessException(ErrorCode.NULL_ERROR,"当前入队人数较多，请稍后重试");
+            }
+            QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
+            userTeamQueryWrapper.eq("userId",userId);
+            long count = userTeamService.count(userTeamQueryWrapper);
+            if(count>5){
+                throw new BusinessException(ErrorCode.NULL_ERROR,"用户最多加入5个队伍");
+            }
+            // 队伍必须存在，、
+            userTeamQueryWrapper = new QueryWrapper<>();
+            userTeamQueryWrapper.eq("teamId",teamId);
+            count = userTeamService .count(userTeamQueryWrapper);
+            // 只能加入未满
+            if (team.getMaxNum()<=count){
+                throw new BusinessException(ErrorCode.NULL_ERROR,"队伍已满");
+            }
+            // 不能重复加入已加入的队伍（幂等性）
+            userTeamQueryWrapper = new QueryWrapper<>();
+            userTeamQueryWrapper.eq("teamId",teamId);
+            userTeamQueryWrapper.eq("userId",userId);
+            count = userTeamService.count(userTeamQueryWrapper);
+            if (count>0){
+                throw new BusinessException(ErrorCode.NULL_ERROR,"不能重复加入已加入的队伍");
+            }
+            // 新增队伍 - 用户关联信息
+            UserTeam userTeam = new UserTeam();
+            userTeam.setUserId(userId);
+            userTeam.setTeamId(teamId);
+            userTeam.setJoinTime(new Date());
+            return userTeamService.save(userTeam);
+        } catch (InterruptedException e) {
+            log.error("加入队伍获取锁被中断", e);
+            return false;
+        }finally {
+            if (acquire){
                 System.out.println("thread = " + thread.getId());
                 lock.unlock();
             }
