@@ -60,29 +60,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return 新用户 id
      */
     @Override
-    public long userRegister(String userAccount, String userPassword, String checkPassword, String planetCode) {
+    public long userRegister(String userAccount, String userPassword, String checkPassword) {
         // 1. 校验
-        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode)) {
+        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
         if (userAccount.length() < 4) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短");
         }
-        if (userPassword.length() < 8 || checkPassword.length() < 8) {
+        if (userPassword.length() < 8) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
-        }
-        if (planetCode.length() > 5) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "星球编号过长");
         }
         // 账户不能包含特殊字符
         String validPattern = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
         Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
         if (matcher.find()) {
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号不能包含特殊字符");
         }
         // 密码和校验密码相同
         if (!userPassword.equals(checkPassword)) {
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入的密码不一致");
         }
         // 账户不能重复
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
@@ -91,25 +88,35 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (count > 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号重复");
         }
-        // 星球编号不能重复
-        queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("planetCode", planetCode);
-        count = userMapper.selectCount(queryWrapper);
-        if (count > 0) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "编号重复");
-        }
         // 2. 加密
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
-        // 3. 插入数据
+        // 3. 插入数据（自动生成用户编号）
         User user = new User();
         user.setUserAccount(userAccount);
         user.setUserPassword(encryptPassword);
-        user.setPlanetCode(planetCode);
+        user.setUsername(userAccount);
+        user.setPlanetCode(generatePlanetCode());
         boolean saveResult = this.save(user);
         if (!saveResult) {
-            return -1;
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，请稍后重试");
         }
         return user.getId();
+    }
+
+    /**
+     * 自动生成唯一用户编号（6 位数字）
+     */
+    private String generatePlanetCode() {
+        Random random = new Random();
+        for (int i = 0; i < 20; i++) {
+            String code = String.valueOf(100000 + random.nextInt(900000));
+            QueryWrapper<User> wrapper = new QueryWrapper<>();
+            wrapper.eq("planetCode", code);
+            if (userMapper.selectCount(wrapper) == 0) {
+                return code;
+            }
+        }
+        return String.valueOf(System.currentTimeMillis());
     }
 
 
@@ -277,6 +284,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         User oldUser = userMapper.selectById(userId);
         if (oldUser==null){
             throw new BusinessException(ErrorCode.NULL_ERROR);
+        }
+        // 校验手机号格式
+        if (StringUtils.isNotBlank(user.getPhone()) && !user.getPhone().matches("^1[3-9]\\d{9}$")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "手机号格式不正确");
+        }
+        // 校验邮箱格式
+        if (StringUtils.isNotBlank(user.getEmail())
+                && !user.getEmail().matches("^[\\w.%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱格式不正确");
         }
         return userMapper.updateById(user);
 

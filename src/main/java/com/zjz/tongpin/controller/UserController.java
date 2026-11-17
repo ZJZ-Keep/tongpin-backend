@@ -18,6 +18,7 @@ import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.util.CollectionUtils;
@@ -29,7 +30,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -53,6 +56,12 @@ public class UserController {
     private RedisTemplate redisTemplate;
 
     /**
+     * 头像本地存储目录
+     */
+    @Value("${file.avatar.upload-dir:./upload/avatar}")
+    private String avatarUploadDir;
+
+    /**
      * 用户注册
      *
      * @param userRegisterRequest
@@ -68,11 +77,10 @@ public class UserController {
         String userAccount = userRegisterRequest.getUserAccount();
         String userPassword = userRegisterRequest.getUserPassword();
         String checkPassword = userRegisterRequest.getCheckPassword();
-        String planetCode = userRegisterRequest.getPlanetCode();
-        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode)) {
+        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        long result = userService.userRegister(userAccount, userPassword, checkPassword, planetCode);
+        long result = userService.userRegister(userAccount, userPassword, checkPassword);
         return ResultUtils.success(result);
     }
 
@@ -144,6 +152,26 @@ public class UserController {
     }
 
     /**
+     * 根据 id 获取用户信息（用于聊天等场景）
+     */
+    @ApiOperation("根据id获取用户")
+    @GetMapping("/get")
+    public BaseResponse<User> getUserById(long id, HttpServletRequest request) {
+        if (id <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getUserLogin(request);
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
+        User user = userService.getById(id);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        return ResultUtils.success(userService.getSafetyUser(user));
+    }
+
+    /**
      * 搜索用户
      *
      * @param request
@@ -173,34 +201,23 @@ public class UserController {
     @GetMapping("/recommend")
     @ApiOperation("推荐用户")
     public BaseResponse<Page<User>> recommendUsers(
-            @RequestParam long pageSize,
-            @RequestParam long pageNum,
+            @RequestParam(defaultValue = "20") long pageSize,
+            @RequestParam(defaultValue = "1") long pageNum,
             HttpServletRequest request) {
         User loginUser = userService.getUserLogin(request);
-        // 1. 缓存键加入分页参数，确保不同页数据缓存不冲突
-        String redisKey = String.format("zjz:user:recommend:%s:%s:%s",
-                loginUser.getId(), pageNum,pageSize);
-        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
-        // 2. 尝试从缓存读取
-        Page<User> userPage = (Page<User>) valueOperations.get(redisKey);
-        if (userPage != null) {
-            // 缓存命中：对缓存中的数据进行脱敏
-            return ResultUtils.success(userPage);
+        // 未登录直接返回业务错误
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
         }
-        // 3. 缓存未命中，查询数据库
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        userPage = userService.page(new Page<>(pageNum, pageSize), queryWrapper);
-        // 4. 对查询出的原始数据进行脱敏
+        // 排除自己，且按创建时间倒序，保证新注册用户也能被别人看到
+        queryWrapper.ne("id", loginUser.getId());
+        queryWrapper.orderByDesc("createTime");
+        Page<User> userPage = userService.page(new Page<>(pageNum, pageSize), queryWrapper);
         if (userPage != null && userPage.getRecords() != null) {
             userPage.setRecords(userPage.getRecords().stream()
                     .map(userService::getSafetyUser)
                     .collect(Collectors.toList()));
-        }
-        // 5. 将脱敏后的分页结果写入缓存（建议添加过期时间）
-        try {
-            valueOperations.set(redisKey, userPage, 30, TimeUnit.MINUTES);
-        } catch (Exception e) {
-            log.error("redis set key error", e);
         }
         return ResultUtils.success(userPage);
     }
@@ -234,11 +251,19 @@ public class UserController {
      */
     @ApiOperation("通过标签搜索用户")
     @GetMapping("/search/tags")
-    public BaseResponse<List<User>> searchUserByTags(@RequestParam(required = false) List<String> tagNameList){
+    public BaseResponse<List<User>> searchUserByTags(@RequestParam(required = false) List<String> tagNameList,
+                                                     HttpServletRequest request){
         if (CollectionUtils.isEmpty(tagNameList)){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         List<User> users = userService.searchUserByTagName(tagNameList);
+        // 搜索结果里排除自己
+        User loginUser = userService.getUserLogin(request);
+        if (loginUser != null) {
+            users = users.stream()
+                    .filter(user -> !user.getId().equals(loginUser.getId()))
+                    .collect(Collectors.toList());
+        }
         return ResultUtils.success(users);
     }
 
@@ -270,6 +295,9 @@ public class UserController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         User userLogin = userService.getUserLogin(request);
+        if (userLogin == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
         List<User> userList=userService.matchUser(num,userLogin);
         return ResultUtils.success(userList);
     }
@@ -287,6 +315,49 @@ public class UserController {
         EasyExcel.read(file.getInputStream(), UserTableInfo.class, tableListener).sheet().doRead();
         executor.shutdown();
         return ResultUtils.success("批量插入用户成功");
+    }
+
+    /**
+     * 上传用户头像（保存到本地目录，返回可访问的图片地址）
+     */
+    @ApiOperation("上传用户头像")
+    @PostMapping("/avatar/upload")
+    public BaseResponse<String> uploadAvatar(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请选择图片");
+        }
+        User userLogin = userService.getUserLogin(request);
+        if (userLogin == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
+        // 校验文件后缀
+        String originalFilename = file.getOriginalFilename();
+        String suffix = "";
+        if (StringUtils.isNotBlank(originalFilename) && originalFilename.contains(".")) {
+            suffix = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+        }
+        if (!(".jpg".equals(suffix) || ".jpeg".equals(suffix) || ".png".equals(suffix)
+                || ".gif".equals(suffix) || ".webp".equals(suffix))) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "仅支持 jpg/png/gif/webp 格式图片");
+        }
+        // 限制大小 5MB
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "图片大小不能超过 5MB");
+        }
+        try {
+            File dir = Paths.get(avatarUploadDir).toAbsolutePath().toFile();
+            if (!dir.exists() && !dir.mkdirs()) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "创建头像目录失败");
+            }
+            String fileName = UUID.randomUUID().toString().replace("-", "") + suffix;
+            File dest = new File(dir, fileName);
+            file.transferTo(dest);
+            // 返回带 context-path 的可访问地址
+            return ResultUtils.success("/api/avatar/" + fileName);
+        } catch (IOException e) {
+            log.error("上传头像失败", e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传头像失败");
+        }
     }
 }
 

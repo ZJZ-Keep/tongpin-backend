@@ -5,6 +5,11 @@ spring:
   application:
     name: tongpin-backend
 
+  # 日期格式统一（含时区，避免前后端时间差 8 小时）
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+
   # DataSource Config
   datasource:
     driver-class-name: com.mysql.jdbc.Driver
@@ -22,7 +27,7 @@ spring:
   redis:
     host: localhost
     port: 6379
-    database: 1
+    database: 2
     password: a1357924680
 server:
   port: 8080
@@ -60,6 +65,11 @@ knife4j:
           - com.zjz.tongpin.controller
 
   production: false
+
+# 文件上传配置
+file:
+  avatar:
+    upload-dir: ./upload/avatar
 
 # 生产环境配置
 ---

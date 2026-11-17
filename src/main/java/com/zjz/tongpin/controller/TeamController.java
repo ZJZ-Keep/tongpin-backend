@@ -99,20 +99,26 @@ public class TeamController {
         log.info("teamQuery:{}",teamQuery);
         // 1、查询队伍列表
         List<TeamUserVo> teamList = teamService.listTeams(teamQuery,isAdmin);
+        // 没有队伍时直接返回空列表，避免 teamIdList 为空导致 IN () 非法 SQL
+        if (teamList.isEmpty()) {
+            return ResultUtils.success(teamList);
+        }
         final List<Long> teamIdList = teamList.stream().map(TeamUserVo::getId).collect(Collectors.toList());
         // 2、判断当前用户是否已加入队伍
         QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
         try {
             User loginUser = userService.getUserLogin(request);
-            userTeamQueryWrapper.eq("userId", loginUser.getId());
-            userTeamQueryWrapper.in("teamId", teamIdList);
-            List<UserTeam> userTeamList = userTeamService.list(userTeamQueryWrapper);
-            // 已加入的队伍 id 集合
-            Set<Long> hasJoinTeamIdSet = userTeamList.stream().map(UserTeam::getTeamId).collect(Collectors.toSet());
-            teamList.forEach(team -> {
-                boolean hasJoin = hasJoinTeamIdSet.contains(team.getId());
-                team.setHasJoin(hasJoin);
-            });
+            if (loginUser != null) {
+                userTeamQueryWrapper.eq("userId", loginUser.getId());
+                userTeamQueryWrapper.in("teamId", teamIdList);
+                List<UserTeam> userTeamList = userTeamService.list(userTeamQueryWrapper);
+                // 已加入的队伍 id 集合
+                Set<Long> hasJoinTeamIdSet = userTeamList.stream().map(UserTeam::getTeamId).collect(Collectors.toSet());
+                teamList.forEach(team -> {
+                    boolean hasJoin = hasJoinTeamIdSet.contains(team.getId());
+                    team.setHasJoin(hasJoin);
+                });
+            }
         } catch (Exception e) {}
         /*// 3、查询已加入队伍的人数
         QueryWrapper<UserTeam> userTeamJoinQueryWrapper = new QueryWrapper<>();
@@ -123,17 +129,16 @@ public class TeamController {
         teamList.forEach(team -> team.setHasJoinNum(teamIdUserTeamList.getOrDefault(team.getId(), new ArrayList<>()).size()));*/
         // 3、查询已加入队伍的人数
         QueryWrapper<UserTeam> userTeamJoinQueryWrapper = new QueryWrapper<>();
-        userTeamJoinQueryWrapper.select("teamId","COUNT(*) as joinNum");
-        userTeamJoinQueryWrapper.in("teamId",teamIdList);
+        userTeamJoinQueryWrapper.select("teamId", "COUNT(*) as joinNum");
+        userTeamJoinQueryWrapper.in("teamId", teamIdList);
         userTeamJoinQueryWrapper.groupBy("teamId");
         List<Map<String, Object>> mapList = userTeamService.listMaps(userTeamJoinQueryWrapper);
         //key:队伍ID value:joinNum 人数
         Map<Long, Number> teamIdJoinNumMap = mapList.stream()
                 .collect(Collectors.toMap(
-                        map -> (long)map.get("teamId"),
-                        map -> (Number)map.get("joinNum")
-                        )
-                );
+                        map -> ((Number) map.get("teamId")).longValue(),
+                        map -> (Number) map.get("joinNum")
+                ));
         teamList.forEach(teamUserVo ->
                 teamUserVo.setHasJoinNum( teamIdJoinNumMap.getOrDefault(teamUserVo.getId(), 0)));
         return ResultUtils.success(teamList);
@@ -222,6 +227,8 @@ public class TeamController {
         User userLogin = userService.getUserLogin(request);
         Long id = userLogin.getId();
         teamQuery.setUserId(id);
+        // 我创建的队伍：包含已过期队伍
+        teamQuery.setShowExpired(true);
         List<TeamUserVo> list = teamService.listTeams(teamQuery,true);
         return ResultUtils.success(list);
     }
@@ -242,12 +249,14 @@ public class TeamController {
         userTeamQueryWrapper.eq("userId",id);
         List<UserTeam> teamList = userTeamService.list(userTeamQueryWrapper);
         if (teamList==null|| teamList.isEmpty()){
-            return ResultUtils.success(null);
+            return ResultUtils.success(new ArrayList<>());
         }
         //查询不重复的队伍id
         Map<Long, List<UserTeam>> listMap = teamList.stream().collect(Collectors.groupingBy(UserTeam::getTeamId));
         List<Long> idList = new ArrayList<>(listMap.keySet());
         teamQuery.setIdList(idList);
+        // 我加入的队伍：包含已过期队伍（自己创建的也会展示，方便用户看到自己的全部队伍）
+        teamQuery.setShowExpired(true);
         List<TeamUserVo> list = teamService.listTeams(teamQuery,true);
         return ResultUtils.success(list);
     }

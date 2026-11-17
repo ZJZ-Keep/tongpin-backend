@@ -2,6 +2,7 @@ package com.zjz.tongpin.service;
 
 // [编程学习交流圈](https://www.code-nav.cn/) 连接万名编程爱好者，一起优秀！20000+ 小伙伴交流分享、40+ 大厂嘉宾一对一答疑、100+ 各方向编程交流群、4000+ 编程问答参考
 
+import com.zjz.tongpin.exception.BusinessException;
 import com.zjz.tongpin.model.domain.User;
 import org.junit.Assert;
 import org.junit.jupiter.api.Assertions;
@@ -85,33 +86,18 @@ public class UserServiceTest {
      */
     @Test
     void userRegister() {
-        String userAccount = " zjz";
-        String userPassword = "";
-        String checkPassword = "123456";
-        String planetCode = "1";
-        long result = userService.userRegister(userAccount, userPassword, checkPassword, planetCode);
-        Assertions.assertEquals(-1, result);
-        userAccount = "yu";
-        result = userService.userRegister(userAccount, userPassword, checkPassword, planetCode);
-        Assertions.assertEquals(-1, result);
-        userAccount = " zjz";
-        userPassword = "123456";
-        result = userService.userRegister(userAccount, userPassword, checkPassword, planetCode);
-        Assertions.assertEquals(-1, result);
-        userAccount = "yu pi";
-        userPassword = "12345678";
-        result = userService.userRegister(userAccount, userPassword, checkPassword, planetCode);
-        Assertions.assertEquals(-1, result);
-        checkPassword = "123456789";
-        result = userService.userRegister(userAccount, userPassword, checkPassword, planetCode);
-        Assertions.assertEquals(-1, result);
-        userAccount = "dog zjz";
-        checkPassword = "12345678";
-        result = userService.userRegister(userAccount, userPassword, checkPassword, planetCode);
-        Assertions.assertEquals(-1, result);
-        userAccount = " zjz";
-        result = userService.userRegister(userAccount, userPassword, checkPassword, planetCode);
-        Assertions.assertEquals(-1, result);
+        // 账号过短
+        Assertions.assertThrows(BusinessException.class,
+                () -> userService.userRegister("yu", "12345678", "12345678"));
+        // 密码过短
+        Assertions.assertThrows(BusinessException.class,
+                () -> userService.userRegister("user1234", "123456", "123456"));
+        // 账号包含特殊字符
+        Assertions.assertThrows(BusinessException.class,
+                () -> userService.userRegister("user@123", "12345678", "12345678"));
+        // 两次密码不一致
+        Assertions.assertThrows(BusinessException.class,
+                () -> userService.userRegister("user1234", "12345678", "12345679"));
     }
 
     @Test
