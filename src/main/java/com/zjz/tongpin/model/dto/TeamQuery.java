@@ -50,9 +50,4 @@ public class TeamQuery extends PageRequest implements Serializable {
      */
     private Integer status;
 
-    /**
-     * 是否展示已过期队伍（我的队伍列表使用）
-     */
-    private Boolean showExpired;
-
 }

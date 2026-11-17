@@ -227,8 +227,6 @@ public class TeamController {
         User userLogin = userService.getUserLogin(request);
         Long id = userLogin.getId();
         teamQuery.setUserId(id);
-        // 我创建的队伍：包含已过期队伍
-        teamQuery.setShowExpired(true);
         List<TeamUserVo> list = teamService.listTeams(teamQuery,true);
         return ResultUtils.success(list);
     }
@@ -255,9 +253,11 @@ public class TeamController {
         Map<Long, List<UserTeam>> listMap = teamList.stream().collect(Collectors.groupingBy(UserTeam::getTeamId));
         List<Long> idList = new ArrayList<>(listMap.keySet());
         teamQuery.setIdList(idList);
-        // 我加入的队伍：包含已过期队伍（自己创建的也会展示，方便用户看到自己的全部队伍）
-        teamQuery.setShowExpired(true);
         List<TeamUserVo> list = teamService.listTeams(teamQuery,true);
+        // 「我加入的」只展示别人创建的队伍，自己创建的在「我创建的」里
+        list = list.stream()
+                .filter(team -> !id.equals(team.getUserId()))
+                .collect(Collectors.toList());
         return ResultUtils.success(list);
     }
 }

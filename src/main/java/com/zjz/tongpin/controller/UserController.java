@@ -31,6 +31,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -245,26 +246,48 @@ public class UserController {
 
 
     /**
-     * 通过标签搜索用户
-     * @param tagNameList
-     * @return
+     * 搜索用户（支持按昵称 + 标签组合搜索）
      */
-    @ApiOperation("通过标签搜索用户")
+    @ApiOperation("搜索用户（昵称 + 标签）")
     @GetMapping("/search/tags")
     public BaseResponse<List<User>> searchUserByTags(@RequestParam(required = false) List<String> tagNameList,
+                                                     @RequestParam(required = false) String username,
                                                      HttpServletRequest request){
-        if (CollectionUtils.isEmpty(tagNameList)){
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
-        List<User> users = userService.searchUserByTagName(tagNameList);
-        // 搜索结果里排除自己
         User loginUser = userService.getUserLogin(request);
-        if (loginUser != null) {
-            users = users.stream()
-                    .filter(user -> !user.getId().equals(loginUser.getId()))
-                    .collect(Collectors.toList());
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
         }
-        return ResultUtils.success(users);
+        boolean hasTags = !CollectionUtils.isEmpty(tagNameList);
+        boolean hasName = StringUtils.isNotBlank(username);
+        // 没有任何搜索条件时直接返回空列表
+        if (!hasTags && !hasName) {
+            return ResultUtils.success(new ArrayList<>());
+        }
+        List<User> users;
+        if (hasTags) {
+            // 标签精确匹配（命中任意一个标签即可）
+            users = userService.searchUserByTagName(tagNameList);
+        } else {
+            // 只按昵称搜索
+            QueryWrapper<User> wrapper = new QueryWrapper<>();
+            wrapper.like("username", username.trim());
+            users = userService.list(wrapper);
+        }
+        String keyword = hasName ? username.trim().toLowerCase() : null;
+        List<User> result = users.stream()
+                // 排除自己
+                .filter(user -> !user.getId().equals(loginUser.getId()))
+                // 同时按昵称过滤（昵称不区分大小写）
+                .filter(user -> {
+                    if (keyword == null) {
+                        return true;
+                    }
+                    String name = user.getUsername();
+                    return name != null && name.toLowerCase().contains(keyword);
+                })
+                .map(userService::getSafetyUser)
+                .collect(Collectors.toList());
+        return ResultUtils.success(result);
     }
 
     /**

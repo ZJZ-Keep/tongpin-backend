@@ -106,13 +106,13 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         if (expireTime != null && new Date().after(expireTime)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"队伍超时时间异常");
         }
-        //  g. 校验用户最多创建 5 个队伍
-        //todo
+        //  g. 校验用户最多创建 5 个队伍（过期队伍不参与计数）
         QueryWrapper<Team> teamQueryWrapper = new QueryWrapper<>();
         teamQueryWrapper.eq("userId",userId);
+        teamQueryWrapper.and(tw -> tw.gt("expireTime", new Date()).or().isNull("expireTime"));
         long count = this.count(teamQueryWrapper);
         if (count>=5){
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"队伍数量大于5");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"一个人最多创建 5 个队伍");
         }
         //h. 插入队伍信息到队伍表
         team.setId(null);
@@ -190,10 +190,8 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                 teamQueryWrapper.in("status", TeamStatusEnum.PUBLIC.getStatus(), TeamStatusEnum.SECRET.getStatus());
             }
         }
-        //2. 不展示已过期的队伍（我的队伍列表可选择展示）
-        if (teamQuery == null || !Boolean.TRUE.equals(teamQuery.getShowExpired())) {
-            teamQueryWrapper.and(tw->tw.gt("expireTime",new Date()).or().isNull("expireTime"));
-        }
+        //2. 不展示已过期的队伍（过期队伍会被定时任务逻辑删除）
+        teamQueryWrapper.and(tw->tw.gt("expireTime",new Date()).or().isNull("expireTime"));
         // 新创建的队伍优先展示
         teamQueryWrapper.orderByDesc("createTime");
         List<Team> teamList = this.list(teamQueryWrapper);
@@ -358,20 +356,29 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             if (!acquire){
                 throw new BusinessException(ErrorCode.NULL_ERROR,"当前入队人数较多，请稍后重试");
             }
-            QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
-            userTeamQueryWrapper.eq("userId",userId);
-            long totalRelation = userTeamService.count(userTeamQueryWrapper);
-            // 只统计“加入别人的队伍”，自己创建的队伍不计入 5 个上限
+            // 统计“我加入的、未过期的、别人创建的队伍”，最多 5 个
+            QueryWrapper<UserTeam> myRelationWrapper = new QueryWrapper<>();
+            myRelationWrapper.eq("userId", userId);
+            List<UserTeam> myRelations = userTeamService.list(myRelationWrapper);
             QueryWrapper<Team> createdTeamWrapper = new QueryWrapper<>();
             createdTeamWrapper.eq("userId", userId);
-            long createdCount = this.count(createdTeamWrapper);
-            long joinedCount = Math.max(0, totalRelation - createdCount);
-            if (joinedCount >= 5) {
-                throw new BusinessException(ErrorCode.NULL_ERROR, "用户最多加入5个队伍");
+            Set<Long> createdTeamIds = this.list(createdTeamWrapper).stream()
+                    .map(Team::getId).collect(Collectors.toSet());
+            Set<Long> joinedTeamIds = myRelations.stream()
+                    .map(UserTeam::getTeamId)
+                    .filter(tid -> !createdTeamIds.contains(tid))
+                    .collect(Collectors.toSet());
+            if (!joinedTeamIds.isEmpty()) {
+                long validJoinedCount = this.listByIds(joinedTeamIds).stream()
+                        .filter(t -> t.getExpireTime() == null || t.getExpireTime().after(new Date()))
+                        .count();
+                if (validJoinedCount >= 5) {
+                    throw new BusinessException(ErrorCode.NULL_ERROR, "用户最多加入5个队伍");
+                }
             }
-            // 队伍必须存在，、
-            userTeamQueryWrapper = new QueryWrapper<>();
-            userTeamQueryWrapper.eq("teamId",teamId);
+            // 校验队伍成员数
+            QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
+            userTeamQueryWrapper.eq("teamId", teamId);
             long count = userTeamService.count(userTeamQueryWrapper);
             // 只能加入未满
             if (team.getMaxNum()<=count){
